@@ -1,3 +1,4 @@
+import folium
 import gpxpy
 import pandas as pd
 from geopy.distance import geodesic
@@ -78,9 +79,27 @@ class GpxTrack:
 
         return timedelta(seconds=int(moving_seconds))
 
+    def show_map(self, color='red', output_file='map.html'):
+        start_lat = self.df.iloc[0]['lat']
+        start_lon = self.df.iloc[0]['lon']
+
+        m = folium.Map(location=[start_lat, start_lon],
+                       zoom_start=13,
+                       tiles='OpenStreetMap')
+
+        points = list(zip(self.df['lat'], self.df['lon']))
+        folium.PolyLine(points, color=color, weigh=4, opacity=0.8).add_to(m)
+
+        folium.Marker(points[0], tooltip='Start').add_to(m)
+        folium.Marker(points[-1], tooltip='Finish').add_to(m)
+
+        m.save(output_file)
+        return output_file
+
 
 file = 'test.gpx'
 track = GpxTrack(file)
 print(f'czas: {track.total_time}')
 print(f'czas jazdy: {track.moving_time}')
 print(f'dystans: {track.distance} km')
+track.show_map(color='blue')
