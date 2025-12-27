@@ -1,8 +1,10 @@
 import folium
 import gpxpy
+import matplotlib.pyplot as plt
 import pandas as pd
 from geopy.distance import geodesic
 from datetime import timedelta
+from pathlib import Path
 
 
 class GpxTrack:
@@ -79,11 +81,44 @@ class GpxTrack:
 
         return timedelta(seconds=int(moving_seconds))
 
-    def show_map(self, color='red', output_file='map.html'):
-        start_lat = self.df.iloc[0]['lat']
-        start_lon = self.df.iloc[0]['lon']
+    def save_elevation_profile(self, output_file='elevation.png'):
+        df = self.df.copy()
+        distances = [0.0]
 
-        m = folium.Map(location=[start_lat, start_lon],
+        for i in range(1, len(df)):
+            p1 = (df.iloc[i - 1]['lat'], df.iloc[i - 1]['lon'])
+            p2 = (df.iloc[i]['lat'], df.iloc[i]['lon'])
+            distances.append(distances[-1] + geodesic(p1, p2).meters / 1000)
+
+        df['dist_km'] = distances
+
+        plt.rcParams.update({'font.size': 25})
+        plt.figure(figsize=(20, 4))
+        plt.plot(df['dist_km'], df['ele'], linewidth=1)
+        plt.fill_between(df['dist_km'], df['ele'], alpha=0.3)
+
+        plt.xlabel('Distance [km]')
+        plt.ylabel('Elevation [m]')
+        plt.tight_layout()
+
+        plt.savefig(output_file, dpi=150)
+        plt.close()
+
+        return Path(output_file)
+
+    def stats_html(self):
+        return f"""
+        <ul>
+            <li><b>Dystans:</b> {self.distance / 1000:.2f} km</li>
+            <li><b>Czas całkowity:</b> {self.total_time}</li>
+            <li><b>Czas jazdy:</b> {self.moving_time}</li>
+        </ul>
+        """
+
+    def show_map(self, color='red', output_file='map.html'):
+        start = self.df.iloc[0]
+
+        m = folium.Map(location=[start['lat'], start['lon']],
                        zoom_start=13,
                        tiles='OpenStreetMap')
 
@@ -93,6 +128,24 @@ class GpxTrack:
         folium.Marker(points[0], tooltip='Start').add_to(m)
         folium.Marker(points[-1], tooltip='Finish').add_to(m)
 
+        elevation_img = self.save_elevation_profile()
+
+        html = f"""
+            <div style="position: fixed;
+                        bottom: 10px;
+                        left: 10px;
+                        width: 800px;
+                        background: white;
+                        padding: 10px;
+                        z-index: 9999;
+                        border-radius: 8px;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.3);">
+                {self.stats_html()}
+                <img src="{elevation_img.name}" width="100%">
+            </div>
+            """
+
+        m.get_root().html.add_child(folium.Element(html))
         m.save(output_file)
         return output_file
 
