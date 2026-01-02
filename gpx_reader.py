@@ -11,7 +11,8 @@ class GpxTrack(BaseTrack):
         df = self._load_gpx(gpx_file)
         super().__init__(df)
 
-    def _load_gpx(self, gpx_file: str) -> pd.DataFrame:
+    @staticmethod
+    def _load_gpx(gpx_file: str) -> pd.DataFrame:
         """
         Load gpx file and save data into data frame with columns:
         lat - latitude
