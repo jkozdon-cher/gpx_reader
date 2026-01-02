@@ -2,6 +2,8 @@ import folium
 import gpxpy
 import matplotlib.pyplot as plt
 import pandas as pd
+import plotly.graph_objects as go
+import webbrowser
 from geopy.distance import geodesic
 from datetime import timedelta
 from pathlib import Path
@@ -81,7 +83,7 @@ class GpxTrack:
 
         return timedelta(seconds=int(moving_seconds))
 
-    def save_elevation_profile(self, output_file='elevation.png'):
+    def generate_elevation_profile(self):
         df = self.df.copy()
         distances = [0.0]
 
@@ -92,19 +94,22 @@ class GpxTrack:
 
         df['dist_km'] = distances
 
-        plt.rcParams.update({'font.size': 25})
-        plt.figure(figsize=(20, 4))
-        plt.plot(df['dist_km'], df['ele'], linewidth=1)
-        plt.fill_between(df['dist_km'], df['ele'], alpha=0.3)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=df['dist_km'],
+            y=df['ele'],
+            mode='lines',
+            fill='tozeroy',
+            name='Wysokość'
+        ))
 
-        plt.xlabel('Distance [km]')
-        plt.ylabel('Elevation [m]')
-        plt.tight_layout()
-
-        plt.savefig(output_file, dpi=150)
-        plt.close()
-
-        return Path(output_file)
+        fig.update_layout(
+            autosize=True,
+            height=250,
+            margin=dict(l=20, r=20, t=30, b=30),
+            showlegend=False
+        )
+        return fig.to_html(include_plotlyjs='cdn', full_html=False)
 
     def stats_html(self):
         return f"""
@@ -115,7 +120,7 @@ class GpxTrack:
         </ul>
         """
 
-    def show_map(self, color='red', output_file='map.html'):
+    def show_map(self, color='red', output_file='map.html', open_browser=True):
         start = self.df.iloc[0]
 
         m = folium.Map(location=[start['lat'], start['lon']],
@@ -128,31 +133,35 @@ class GpxTrack:
         folium.Marker(points[0], tooltip='Start').add_to(m)
         folium.Marker(points[-1], tooltip='Finish').add_to(m)
 
-        elevation_img = self.save_elevation_profile()
-
         html = f"""
             <div style="position: fixed;
-                        bottom: 10px;
-                        left: 10px;
-                        width: 800px;
+                        bottom: 0;
+                        left: 0;
+                        width: 100%;
+                        max-width: 100%,
                         background: white;
                         padding: 10px;
                         z-index: 9999;
                         border-radius: 8px;
                         box-shadow: 0 0 10px rgba(0,0,0,0.3);">
                 {self.stats_html()}
-                <img src="{elevation_img.name}" width="100%">
+                {self.generate_elevation_profile()}
             </div>
             """
 
         m.get_root().html.add_child(folium.Element(html))
         m.save(output_file)
+
+        if open_browser:
+            path = Path(output_file).resolve()
+            webbrowser.open(path.as_uri())
+
         return output_file
 
 
 file = 'test.gpx'
 track = GpxTrack(file)
-print(f'czas: {track.total_time}')
-print(f'czas jazdy: {track.moving_time}')
-print(f'dystans: {track.distance} km')
+# print(f'czas: {track.total_time}')
+# print(f'czas jazdy: {track.moving_time}')
+# print(f'dystans: {track.distance} km')
 track.show_map(color='blue')
