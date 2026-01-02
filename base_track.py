@@ -147,13 +147,14 @@ class BaseTrack:
         :param open_browser: if True, map will be automatically open in browser
         :return: path to saved file with map
         """
-        start = self.df.iloc[0]
+        df = self.df.iloc[::5]
+        start = df.iloc[0]
 
         m = folium.Map(location=[start['lat'], start['lon']],
-                       zoom_start=13,
+                       zoom_start=10,
                        tiles='OpenStreetMap')
 
-        points = list(zip(self.df['lat'], self.df['lon']))
+        points = list(zip(df['lat'], df['lon']))
         folium.PolyLine(points, color=color, weigh=4, opacity=0.8).add_to(m)
 
         folium.Marker(points[0], tooltip='Start').add_to(m)
